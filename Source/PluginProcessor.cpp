@@ -110,6 +110,25 @@ void SimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     leftChain.prepare(spec);
     rightChain.prepare(spec);
 
+    auto chainSettings = getChainSettings(apvts);
+    
+    // coefficients for peak filter
+    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+        sampleRate,
+        chainSettings.peakFreq,
+        chainSettings.peakQuality,
+        juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels)
+    );
+
+    // get particular filter with ChainPositions::Peak, ChainPositions::HighCut, ChainPositions::LowCut
+    // coefficients are in arrays allocated on the heap; need to dereference to access values
+    // allocating on heap on audio callback is bad.. but just keep that in mind
+    //leftChain.get<ChainPositions::Peak>().coefficients = peakCoefficients; // needs to be dereferenced
+    // uses the same filter for both channels
+    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients; 
+    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    // This will apply the coefficients to the filters, but because not currently updating,
+    // any changes to the slider will not be applied
 }
 
 void SimpleEQAudioProcessor::releaseResources()
@@ -159,10 +178,35 @@ void SimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
+
+    // ALWAYS update parameters BEFORE running audio through process block
+    // COPIED FROM PREPARETOPLAY
+    
+    auto chainSettings = getChainSettings(apvts);
+    // coefficients for peak filter
+    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+        getSampleRate(),
+        chainSettings.peakFreq,
+        chainSettings.peakQuality,
+        juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels)
+    );
+
+    // get particular filter with ChainPositions::Peak, ChainPositions::HighCut, ChainPositions::LowCut
+    // coefficients are in arrays allocated on the heap; need to dereference to access values
+    // allocating on heap on audio callback is bad.. but just keep that in mind
+    //leftChain.get<ChainPositions::Peak>().coefficients = peakCoefficients; // needs to be dereferenced
+    // uses the same filter for both channels
+    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    // This will apply the coefficients to the filters, but because not currently updating,
+    // any changes to the slider will not be applied
+    // END OF COPY
+
+    // Run audio through process block
     juce::dsp::AudioBlock<float> block(buffer);
 
     auto leftBlock = block.getSingleChannelBlock(0);
-    auto rightBlock = block.getSingleChannelBlock(0);
+    auto rightBlock = block.getSingleChannelBlock(1);
 
     juce::dsp::ProcessContextReplacing<float> leftContext(leftBlock);
     juce::dsp::ProcessContextReplacing<float> rightContext(rightBlock);
@@ -195,6 +239,23 @@ void SimpleEQAudioProcessor::setStateInformation (const void* data, int sizeInBy
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+}
+
+ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
+{
+    ChainSettings settings;
+
+    //apvts.getParameter("LowCutFreq")->getValue(); // normalized value rather than real-world value
+    settings.lowCutFreq = apvts.getRawParameterValue("LowCut Freq")->load();
+    settings.highCutFreq = apvts.getRawParameterValue("HighCut Freq")->load();
+    settings.peakFreq = apvts.getRawParameterValue("Peak Freq")->load();
+    settings.peakGainInDecibels = apvts.getRawParameterValue("Peak Gain")->load();
+    settings.peakQuality = apvts.getRawParameterValue("Peak Quality")->load();
+    settings.lowCutSlope = apvts.getRawParameterValue("LowCut Slope")->load();
+    settings.highCutSlope = apvts.getRawParameterValue("HighCut Slope")->load();
+
+
+    return settings;
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout 
