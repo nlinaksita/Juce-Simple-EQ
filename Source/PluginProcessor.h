@@ -107,35 +107,35 @@ private:
     }
 
     template<typename ChainType, typename CoefficientType>
-    void updateCutFilter(ChainType& leftLowCut,
-        const CoefficientType& cutCoefficients,
-        const Slope& lowCutSlope)
+    void updateCutFilter(ChainType& chain,
+        const CoefficientType& coefficients,
+        const Slope& slope)
     {
-        leftLowCut.setBypassed<0>(true);
-        leftLowCut.setBypassed<1>(true);
-        leftLowCut.setBypassed<2>(true);
-        leftLowCut.setBypassed<3>(true);
+        chain.setBypassed<0>(true);
+        chain.setBypassed<1>(true);
+        chain.setBypassed<2>(true);
+        chain.setBypassed<3>(true);
 
-        switch (lowCutSlope) {
+        switch (slope) {
             // filter order 2, 12db/oct slope, helper returns array with one coefficient object only
             // assign coeff to first filter in cut filter chain, stop bypassing that filter
         
             case Slope_48:
             {
-                update<3>(leftLowCut, cutCoefficients);
+                update<3>(chain, coefficients);
                 // no break statement so can fall through
             }
             case Slope_36:
             {
-                update<2>(leftLowCut, cutCoefficients);
+                update<2>(chain, coefficients);
             }
             case Slope_24:
             {
-                update<1>(leftLowCut, cutCoefficients);
+                update<1>(chain, coefficients);
             }
             case Slope_12:
             {
-                update<0>(leftLowCut, cutCoefficients);
+                update<0>(chain, coefficients);
             }
             
         }
