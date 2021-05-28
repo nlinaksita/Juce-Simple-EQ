@@ -94,6 +94,12 @@ private:
         HighCut
     };
 
+    // pass argument by reference to function
+    void updatePeakFilter(const ChainSettings& chainSettings);
+    //alias to coefficients defined in juce::dsp::IIR:Filter
+    using Coefficients = Filter::CoefficientsPtr;
+    static void updateCoefficients(Coefficients& old, const Coefficients& replacements);
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SimpleEQAudioProcessor)
 };

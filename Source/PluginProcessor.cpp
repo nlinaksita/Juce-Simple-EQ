@@ -111,24 +111,8 @@ void SimpleEQAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlo
     rightChain.prepare(spec);
 
     auto chainSettings = getChainSettings(apvts);
+    updatePeakFilter(chainSettings);
     
-    // coefficients for peak filter
-    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
-        sampleRate,
-        chainSettings.peakFreq,
-        chainSettings.peakQuality,
-        juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels)
-    );
-
-    // get particular filter with ChainPositions::Peak, ChainPositions::HighCut, ChainPositions::LowCut
-    // coefficients are in arrays allocated on the heap; need to dereference to access values
-    // allocating on heap on audio callback is bad.. but just keep that in mind
-    //leftChain.get<ChainPositions::Peak>().coefficients = peakCoefficients; // needs to be dereferenced
-    // uses the same filter for both channels
-    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients; 
-    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
-    // This will apply the coefficients to the filters, but because not currently updating,
-    // any changes to the slider will not be applied
 
     // coefficients for lowcut filter (highpass)
     /*auto lowCutCoefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(
@@ -293,32 +277,9 @@ void SimpleEQAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juc
     // COPIED FROM PREPARETOPLAY
     
     auto chainSettings = getChainSettings(apvts);
-    // coefficients for peak filter
-    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
-        getSampleRate(),
-        chainSettings.peakFreq,
-        chainSettings.peakQuality,
-        juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels)
-    );
-
-    // get particular filter with ChainPositions::Peak, ChainPositions::HighCut, ChainPositions::LowCut
-    // coefficients are in arrays allocated on the heap; need to dereference to access values
-    // allocating on heap on audio callback is bad.. but just keep that in mind
-    //leftChain.get<ChainPositions::Peak>().coefficients = peakCoefficients; // needs to be dereferenced
-    // uses the same filter for both channels
-    *leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
-    *rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
-    // This will apply the coefficients to the filters, but because not currently updating,
-    // any changes to the slider will not be applied
-    // 
+    updatePeakFilter(chainSettings);
     
 
-        // coefficients for lowcut filter (highpass)
-    /*auto lowCutCoefficients = juce::dsp::IIR::Coefficients<float>::makeHighPass(
-        sampleRate,
-        chainSettings.highCutFreq,
-        chainSettings.highCutSlope
-    );*/
     auto cutCoefficients = juce::dsp::FilterDesign<float>::designIIRHighpassHighOrderButterworthMethod(
         chainSettings.lowCutFreq,
         getSampleRate(),
@@ -478,6 +439,35 @@ ChainSettings getChainSettings(juce::AudioProcessorValueTreeState& apvts)
 
 
     return settings;
+}
+
+void SimpleEQAudioProcessor::updatePeakFilter(const ChainSettings &chainSettings)
+{
+    // coefficients for peak filter
+    auto peakCoefficients = juce::dsp::IIR::Coefficients<float>::makePeakFilter(
+        getSampleRate(),
+        chainSettings.peakFreq,
+        chainSettings.peakQuality,
+        juce::Decibels::decibelsToGain(chainSettings.peakGainInDecibels)
+    );
+
+    // get particular filter with ChainPositions::Peak, ChainPositions::HighCut, ChainPositions::LowCut
+    // coefficients are in arrays allocated on the heap; need to dereference to access values
+    // allocating on heap on audio callback is bad.. but just keep that in mind
+    //leftChain.get<ChainPositions::Peak>().coefficients = peakCoefficients; // needs to be dereferenced
+    // uses the same filter for both channels
+    //*leftChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    //*rightChain.get<ChainPositions::Peak>().coefficients = *peakCoefficients;
+    // This will apply the coefficients to the filters, but because not currently updating,
+    // any changes to the slider will not be applied
+
+    updateCoefficients(leftChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+    updateCoefficients(rightChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+}
+
+void SimpleEQAudioProcessor::updateCoefficients(Coefficients &old, const Coefficients &replacements)
+{
+    *old = *replacements;
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout 
